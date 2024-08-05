@@ -1,1 +1,104 @@
+## Import necessay packages ##
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report
 
+df = pd.read_csv("../autism_screening.csv")
+
+##Select features for the model
+features = ['A1_Score', 'A2_Score', 'A3_Score', 'A4_Score', 'A5_Score', 
+            'A6_Score', 'A7_Score', 'A8_Score', 'A9_Score', 'A10_Score',
+            'age', 'gender', 'jundice', 'austim', 'used_app_before', 'result']
+
+X = df[features]
+y = df['Class/ASD']
+
+##Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+##Create and train model
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+##Make predictions
+y_pred = model.predict(X_test)
+y_pred
+
+##Evaluate the model
+accuracy = accuracy_score(y_test, y_pred)
+print(f"Model Accuracy: {accuracy:.2f}")
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred))
+
+##Feature importance
+feature_importance = pd.DataFrame({'feature': features, 'importance': model.feature_importances_})
+feature_importance = feature_importance.sort_values('importance', ascending=False)
+print("\nTop 5 Most Importance Features:")
+print(feature_importance.head())
+
+class User:
+    def __init__(self, name, age, gender):
+        self.name = name
+        self.age = age
+        self.gender = gender
+        self.scores = {}
+        self.additional_info = {}
+
+class ASDScreeningSystem:
+    def __init__(self):
+        self.model = model
+        self.users = []
+
+    def add_user(self, user):
+        self.users.append(user)
+
+    def screen_user(self, user):
+        # Prepare user data for prediction
+        user_data = np.zeros(len(features))
+        for i, feature in enumerate(features):
+            if feature in user.scores:
+                user_data[i] = user.scores[feature]
+            elif feature in user.additional_info:
+                user_data[i] = user.additional_info[feature]
+            elif feature == 'age':
+                user_data[i] = user.age
+            elif feature == 'gender':
+                user_data[i] = 0 if user.gender == 'm' else 1
+        # Make prediction
+        prediction = self.model.predict([user_data])[0]
+        probability = self.model.predict_proba([user_data])[0][1]
+
+        return prediction, probability
+    
+    def generate_report(self, user, prediction, probability):
+        report = f"Screening Report for {user.name}:\n"
+        report += f"Age: {user.age}\n"
+        report += f"Gender: {user.gender}\n"
+        report += f"ASD Prediction: {'Positive' if prediction == 1 else 'Negative'}\n"
+        report += f"Probability of ASD: {probability:.2f}\n"
+        report += "\nScores:\n"
+        for key, value in user.scores.items():
+            report += f"{key}: {value}\n"
+        return report
+
+## Usage Example
+system = ASDScreeningSystem()
+
+##Add a user
+user1 = User("John Doe", 28, 'm')
+user1.scores = {
+     'A1_Score': 1, 'A2_Score': 1, 'A3_Score': 1, 'A4_Score': 1, 'A5_Score': 0,
+    'A6_Score': 0, 'A7_Score': 1, 'A8_Score': 1, 'A9_Score': 0, 'A10_Score': 1
+}
+user1.additional_info = {'jundice': 0, 'austim': 0, 'used_app_before': 0, 'result': 7
+}
+system.add_user(user1)
+
+# Screen the user
+prediction, probability = system.screen_user(user1)
+
+##Generate and print the report
+report = system.generate_report(user1, prediction, probability)
+print(report)
